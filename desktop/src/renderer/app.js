@@ -6,6 +6,7 @@ const PRESETS = [10, 30, 60, 120, 300, 900, 1800];
 let state = { results: [], updated: 0, loading: false, settings: { lang: 'vi', refreshSeconds: 60, showAgent: 'all', showEmail: false } };
 let page = 'main';          // 'main' | 'settings'
 let revealed = new Set();    // account ids whose email was clicked open
+let about = null;
 let adding = false;
 let draftAgent = 'claude';
 let draftName = '';
@@ -106,7 +107,7 @@ function render() {
       <button id="refresh" title="Refresh">↻</button>
       <button id="gear" title="${esc(page === 'settings' ? T('back') : T('settings'))}">${page === 'settings' ? '‹' : '⚙'}</button></header>
     ${page === 'settings' ? settingsHTML() : mainHTML()}
-    <footer><span></span><button id="quit">${T('quit')}</button></footer>`;
+    <footer><span>${about ? `v${esc(about.version)} (build ${esc(about.build)}) · ${esc(T('by'))} ${esc(about.author)}` : ''}</span><button id="quit">${T('quit')}</button></footer>`;
 }
 
 document.addEventListener('click', (e) => {
@@ -144,5 +145,6 @@ window.api.onState((s) => {
   state = s;
   if (!typing) render();
 });
+window.api.about().then((a) => { about = a; render(); });
 window.api.state().then((s) => { state = s; render(); });
 setInterval(() => { if (page === 'main' && !document.querySelector('details[open]')) render(); }, 30000);   // keep reset countdowns fresh

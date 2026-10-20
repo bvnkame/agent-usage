@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   addAccount: (agent, name) => ipcRenderer.invoke('addAccount', agent, name),
   removeAccount: (id) => ipcRenderer.invoke('removeAccount', id),
   switchModel: (id, model) => ipcRenderer.invoke('switchModel', id, model),
+  about: () => ipcRenderer.invoke('about'),
   donate: () => ipcRenderer.invoke('donate'),
   quit: () => ipcRenderer.invoke('quit'),
 });

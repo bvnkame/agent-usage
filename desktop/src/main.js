@@ -9,6 +9,8 @@ const { barData } = require('./bar');
 const SETTINGS_FILE = path.join(DATA, 'settings.json');
 const DEFAULTS = { lang: 'vi', refreshSeconds: 60, showAgent: 'all', showEmail: false };
 const POPUP = { width: 800, height: 480 };
+let buildInfo = { build: '0', commit: 'dev' };
+try { buildInfo = require('./build-info.json'); } catch { /* running from source without a build step */ }
 const DONATE_URL = 'https://buymeacoffee.com/bvnkame';
 
 let settings = { ...DEFAULTS };
@@ -123,6 +125,7 @@ function ipc() {
     const acc = allAccounts().find((a) => a.id === id);
     if (acc && setDefaultModel(acc, model)) return refresh();
   });
+  ipcMain.handle('about', () => ({ version: app.getVersion(), build: buildInfo.build, commit: buildInfo.commit, author: 'bvnkame' }));
   ipcMain.handle('donate', () => shell.openExternal(DONATE_URL));
   ipcMain.handle('quit', () => app.quit());
 }

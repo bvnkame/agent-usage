@@ -44,6 +44,7 @@ private let strings: [String: [String]] = [
     "show_email":   ["Hiện email", "Show emails", "显示邮箱", "メールを表示", "이메일 표시", "Mostrar correos"],
     "tap_reveal":   ["bấm để hiện email", "click to show email", "点击显示邮箱", "クリックでメール表示", "클릭하여 이메일 표시", "clic para ver el correo"],
     "coffee":       ["Mời mình ly cà phê", "Buy me a coffee", "请我喝杯咖啡", "コーヒーをおごる", "커피 한 잔 사주기", "Invítame a un café"],
+    "by":           ["bởi", "by", "作者", "作者", "제작", "por"],
     "quit":         ["Thoát", "Quit", "退出", "終了", "종료", "Salir"],
     "sec":          ["giây", "sec", "秒", "秒", "초", "s"],
     "min":          ["phút", "min", "分钟", "分", "분", "min"],

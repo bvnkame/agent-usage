@@ -167,6 +167,13 @@ struct SettingsView: View {
     }
 }
 
+/// "v1.0.0 (build 12) · by bvnkame", from the app bundle's Info.plist
+var aboutLine: String {
+    let i = Bundle.main.infoDictionary
+    let v = i?["CFBundleShortVersionString"] as? String ?? "dev", b = i?["CFBundleVersion"] as? String ?? "0"
+    return "v\(v) (build \(b)) · \(T("by")) bvnkame"
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: Store
     @State private var showSettings = false
@@ -197,7 +204,7 @@ struct ContentView: View {
                 }
             }
             }
-            HStack { Spacer(); Button(T("quit")) { NSApp.terminate(nil) }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary) }
+            HStack { Text(aboutLine).font(.caption2).foregroundStyle(.secondary); Spacer(); Button(T("quit")) { NSApp.terminate(nil) }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary) }
         }
         .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)

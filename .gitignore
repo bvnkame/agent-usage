@@ -7,3 +7,4 @@ dist/
 # old standalone web dashboard, superseded by desktop/
 /server.js
 /public/
+desktop/src/build-info.json

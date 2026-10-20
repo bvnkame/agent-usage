@@ -16,7 +16,9 @@ cat > $APP/Contents/Info.plist <<P
 <key>CFBundleExecutable</key><string>AgentUsageBar</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>CFBundleShortVersionString</key><string>1.0.0</string>
+<key>CFBundleVersion</key><string>$(git rev-list --count HEAD 2>/dev/null || echo 0)</string>
+<key>NSHumanReadableCopyright</key><string>© 2026 bvnkame</string>
 <key>LSUIElement</key><true/>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>

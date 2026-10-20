@@ -7,10 +7,10 @@
   "license": "MIT",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron .",
-    "dist:mac": "electron-builder --mac dmg zip",
-    "dist:win": "electron-builder --win nsis portable",
-    "dist:linux": "electron-builder --linux AppImage deb"
+    "start": "node scripts/build-info.js && electron .",
+    "dist:mac": "node scripts/build-info.js && electron-builder --mac dmg zip",
+    "dist:win": "node scripts/build-info.js && electron-builder --win nsis portable",
+    "dist:linux": "node scripts/build-info.js && electron-builder --linux AppImage deb"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -19,10 +19,28 @@
   "build": {
     "appId": "app.nabi.agentusage",
     "productName": "Agent Usage",
-    "files": ["src/**/*", "assets/**/*"],
-    "directories": { "output": "dist" },
-    "mac": { "category": "public.app-category.developer-tools", "icon": "assets/icon.png", "extendInfo": { "LSUIElement": true } },
-    "win": { "icon": "assets/icon.png" },
-    "linux": { "icon": "assets/icon.png", "category": "Development", "maintainer": "bvnkame <bvnbase@gmail.com>" }
-  }
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icon.png",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "win": {
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Development",
+      "maintainer": "bvnkame <bvnbase@gmail.com>"
+    }
+  },
+  "homepage": "https://github.com/bvnkame/agent-usage"
 }
