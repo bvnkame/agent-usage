@@ -2,6 +2,8 @@
 <h1 align="center">Agent Usage</h1>
 <p align="center">See how much quota is left on <b>Claude Code</b>, <b>Codex</b> and <b>Antigravity</b> without leaving your menu bar.</p>
 
+<p align="center"><a href="https://buymeacoffee.com/bvnkame"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-bvnkame-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy Me A Coffee"></a></p>
+
 <p align="center"><img src="docs/menubar.png" alt="Menu bar"></p>
 
 Each agent shows its logo with two small rows: the **5-hour** quota on top and the **weekly** quota below, as the percentage still left. Numbers turn orange under 30% and red under 10%.
