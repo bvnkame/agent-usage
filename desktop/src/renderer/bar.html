@@ -1,0 +1,58 @@
+<!doctype html><meta charset="utf-8"><canvas id="c"></canvas>
+<script>
+// Draws the tray image. wide (macOS menu bar): logo + two rows (5h above, weekly below) per agent.
+// narrow (Windows/Linux tray, small square): lowest 5h % of all agents on a coloured badge.
+const agy = new Image(); agy.src = '../../assets/agy.png';
+
+function logo(ctx, agent, color, x, y, s) {
+  ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const cx = x + s / 2, cy = y + s / 2, R = s / 2;
+  if (agent === 'claude') {
+    ctx.lineWidth = s * 0.12;
+    for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6, len = R * (i % 2 ? 0.78 : 1);
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.22, cy + Math.sin(a) * R * 0.22); ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len); ctx.stroke();
+    }
+  } else if (agent === 'codex') {
+    ctx.beginPath(); ctx.roundRect(x + 0.5, y + 1.5, s - 1, s - 3, R * 0.55); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = s * 0.11;
+    ctx.beginPath(); ctx.moveTo(x + R * 0.55, cy - R * 0.3); ctx.lineTo(x + R * 0.95, cy); ctx.lineTo(x + R * 0.55, cy + R * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + R * 0.05, cy + R * 0.32); ctx.lineTo(cx + R * 0.5, cy + R * 0.32); ctx.stroke();
+  } else {
+    ctx.drawImage(agy, x, y, s, s);
+  }
+}
+
+function draw(data, wide, dark) {
+  const c = document.getElementById('c'), k = 2;
+  const fg = dark ? '#f2f2f2' : '#1c1c1e', dim = dark ? '#9a9a9f' : '#6b6b70';
+  const pct = (v) => (v == null ? '—' : Math.round(v) + '%');
+  const color = (v) => (v == null ? fg : v <= 10 ? '#ff453a' : v <= 30 ? '#ff9f0a' : fg);
+  if (!wide) {                       // 32x32 badge
+    const lows = data.map((d) => d.h5).filter((v) => v != null), low = lows.length ? Math.min(...lows) : null;
+    c.width = 32 * k; c.height = 32 * k;
+    const ctx = c.getContext('2d'); ctx.scale(k, k);
+    ctx.fillStyle = low == null ? '#6b6b70' : low <= 10 ? '#e5453a' : low <= 30 ? '#f08c00' : '#1f9d6b';
+    ctx.beginPath(); ctx.roundRect(1, 1, 30, 30, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(low == null ? '—' : String(Math.round(low)), 16, 17);
+    return c.toDataURL('image/png');
+  }
+  const h = 22, per = 14 + 3 + 30 + 8, w = 20 + data.length * per;
+  c.width = Math.max(w, 40) * k; c.height = h * k;
+  const ctx = c.getContext('2d'); ctx.scale(k, k);
+  ctx.fillStyle = fg; ctx.font = '600 9.5px ui-monospace, monospace'; ctx.textBaseline = 'middle';
+  ctx.strokeStyle = fg; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(8, 12, 6, Math.PI * 0.8, Math.PI * 2.2); ctx.stroke();   // gauge
+  ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(11, 8); ctx.stroke();
+  let x = 20;
+  for (const d of data) {
+    logo(ctx, d.agent, d.color, x, (h - 14) / 2, 14); x += 17;
+    [[d.h5, '5h', 6], [d.wk, 'w', 16]].forEach(([v, tag, y]) => {
+      ctx.fillStyle = dim; ctx.font = '500 7px sans-serif'; ctx.fillText(tag, x, y);
+      ctx.fillStyle = color(v); ctx.font = '600 9.5px ui-monospace, monospace'; ctx.fillText(pct(v), x + 9, y);
+    });
+    x += 38;
+  }
+  return c.toDataURL('image/png');
+}
+</script>

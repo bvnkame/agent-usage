@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, script: dist:mac }
+          - { os: windows-latest, script: dist:win }
+          - { os: ubuntu-latest, script: dist:linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+        working-directory: desktop
+      - run: npm run ${{ matrix.script }}
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-usage-${{ matrix.os }}
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb

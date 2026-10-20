@@ -1,0 +1,28 @@
+{
+  "name": "agent-usage",
+  "productName": "Agent Usage",
+  "version": "1.0.0",
+  "description": "Tray app showing the remaining quota of Claude Code, Codex and Antigravity",
+  "author": "bvnkame <bvnbase@gmail.com>",
+  "license": "MIT",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable",
+    "dist:linux": "electron-builder --linux AppImage deb"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.nabi.agentusage",
+    "productName": "Agent Usage",
+    "files": ["src/**/*", "assets/**/*"],
+    "directories": { "output": "dist" },
+    "mac": { "category": "public.app-category.developer-tools", "icon": "assets/icon.png", "extendInfo": { "LSUIElement": true } },
+    "win": { "icon": "assets/icon.png" },
+    "linux": { "icon": "assets/icon.png", "category": "Development", "maintainer": "bvnkame <bvnbase@gmail.com>" }
+  }
+}

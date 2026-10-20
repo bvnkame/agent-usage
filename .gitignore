@@ -1,0 +1,9 @@
+.build/
+node_modules/
+dist/
+*.app
+.DS_Store
+.swiftpm/
+# old standalone web dashboard, superseded by desktop/
+/server.js
+/public/
