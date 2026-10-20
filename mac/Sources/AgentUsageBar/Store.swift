@@ -31,7 +31,9 @@ final class Store: ObservableObject {
             for await x in g { arr.append(x) }
             return arr.sorted { $0.0 < $1.0 }.map { $0.1 }
         }
-        results = out; updated = Date(); loading = false
+        // A transient failure (network, expired token) keeps the last good reading instead of blanking the bar.
+        results = out.map { n in n.error != nil ? (results.first { $0.account.id == n.account.id && $0.error == nil } ?? n) : n }
+        updated = Date(); loading = false
     }
 
     static let barAgents = [("claude", NSColor(red: 0.85, green: 0.47, blue: 0.34, alpha: 1)),

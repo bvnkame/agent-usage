@@ -108,11 +108,36 @@ func claudeCreds(_ a: Account) async -> [String: Any]? {
     return nil
 }
 
+/// Access tokens last ~8h and only the Claude CLI refreshes them, so while it is idle the token expires and
+/// the bar goes blank. Refresh here and write the rotated pair back to the keychain so the CLI stays logged in.
+func refreshClaudeToken(_ a: Account, _ c: [String: Any]) async -> [String: Any]? {
+    guard let rt = c["refreshToken"] as? String, a.dir == nil,
+          let u = URL(string: "https://console.anthropic.com/v1/oauth/token") else { return nil }
+    var req = URLRequest(url: u, timeoutInterval: 15)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: ["grant_type": "refresh_token", "refresh_token": rt, "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e"])
+    guard let (d, resp) = try? await URLSession.shared.data(for: req), (resp as? HTTPURLResponse)?.statusCode == 200,
+          let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+          let at = j["access_token"] as? String else { return nil }
+    var n = c
+    n["accessToken"] = at
+    if let nr = j["refresh_token"] as? String { n["refreshToken"] = nr }
+    if let ex = num(j["expires_in"]) { n["expiresAt"] = Int((Date().timeIntervalSince1970 + ex) * 1000) }
+    guard let data = try? JSONSerialization.data(withJSONObject: ["claudeAiOauth": n]), let s = String(data: data, encoding: .utf8) else { return nil }
+    let w = await sh("/usr/bin/security add-generic-password -U -s 'Claude Code-credentials' -a \"$USER\" -w \(shq(s))")
+    if !w.ok { return nil }   // rotated token not saved: keep the old pair rather than strand the CLI
+    return n
+}
+func shq(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+
 func probeClaude(_ a: Account) async -> UsageResult {
     var r = UsageResult(account: a)
-    guard let c = await claudeCreds(a), let tok = c["accessToken"] as? String else {
+    guard var c = await claudeCreds(a), c["accessToken"] is String else {
         r.error = T("not_logged_claude"); return r
     }
+    if let exp = num(c["expiresAt"]), exp / 1000 < Date().timeIntervalSince1970 + 120, let n = await refreshClaudeToken(a, c) { c = n }
+    let tok = c["accessToken"] as! String
     r.plan = c["subscriptionType"] as? String
     let h = ["Authorization": "Bearer " + tok, "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01", "User-Agent": "claude-code/2.1"]
     async let u = getJSON("https://api.anthropic.com/api/oauth/usage", h)
