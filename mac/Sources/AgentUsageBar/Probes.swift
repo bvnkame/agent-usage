@@ -131,6 +131,54 @@ func refreshClaudeToken(_ a: Account, _ c: [String: Any]) async -> [String: Any]
 }
 func shq(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
+/// `claude -p /usage` prints "Current week (Fable): 6% used · resets Nov 7 at 1:59pm (Asia/Saigon)".
+/// This is what the CLI itself shows, so it includes per-model windows the OAuth API does not return.
+func parseClaudeReset(_ raw: String) -> Date? {
+    guard let m = raw.range(of: #"\(([^)]+)\)\s*$"#, options: .regularExpression) else { return nil }
+    let tzName = String(raw[m]).trimmingCharacters(in: CharacterSet(charactersIn: "() "))
+    guard let tz = TimeZone(identifier: tzName) else { return nil }
+    let body = String(raw[..<m.lowerBound]).trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " at ", with: " ")
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = tz
+    let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = tz
+    let now = Date()
+    let hasDate = body.range(of: #"^[A-Za-z]{3}"#, options: .regularExpression) != nil
+    for fmt in hasDate ? ["MMM d h:mma", "MMM d ha"] : ["h:mma", "ha"] {
+        f.dateFormat = fmt
+        guard let d = f.date(from: body) else { continue }
+        var c = cal.dateComponents([.month, .day, .hour, .minute], from: d)
+        if hasDate {
+            c.year = cal.component(.year, from: now)
+            if var t = cal.date(from: c) { if t < now.addingTimeInterval(-86400 * 30) { c.year! += 1; t = cal.date(from: c) ?? t }; return t }
+        } else {
+            let base = cal.dateComponents([.year, .month, .day], from: now)
+            c.year = base.year; c.month = base.month; c.day = base.day
+            if var t = cal.date(from: c) { if t < now { t = cal.date(byAdding: .day, value: 1, to: t) ?? t }; return t }
+        }
+    }
+    return nil
+}
+func claudeCLILimits(_ a: Account) async -> [Limit] {
+    let out = await sh("claude -p /usage", env: a.dir.map { ["CLAUDE_CONFIG_DIR": $0] } ?? [:], timeout: 45)
+    guard out.ok, let re = try? NSRegularExpression(pattern: #"^Current ([^:]+):\s*(\d+(?:\.\d+)?)%\s*used(?:\s*·\s*resets\s+(.+))?$"#) else { return [] }
+    var res: [Limit] = []
+    for line in out.out.split(separator: "\n") {
+        let l = String(line).trimmingCharacters(in: .whitespaces)
+        guard let m = re.firstMatch(in: l, range: NSRange(l.startIndex..., in: l)),
+              let kr = Range(m.range(at: 1), in: l), let pr = Range(m.range(at: 2), in: l), let p = Double(l[pr]) else { continue }
+        let key = String(l[kr]); var label = key
+        if key == "session" { label = "Session (5h)" }
+        else if key.hasPrefix("week") {
+            if let o = key.firstIndex(of: "("), let c = key.firstIndex(of: ")"), o < c {
+                let inner = String(key[key.index(after: o)..<c])
+                label = "Weekly – " + (inner == "all models" ? "all models" : inner)
+            } else { label = "Weekly" }
+        }
+        let reset = Range(m.range(at: 3), in: l).flatMap { parseClaudeReset(String(l[$0])) }
+        res.append(Limit(label: label, percent: p, resetsAt: reset))
+    }
+    return res
+}
+
 func probeClaude(_ a: Account) async -> UsageResult {
     var r = UsageResult(account: a)
     guard var c = await claudeCreds(a), c["accessToken"] is String else {
@@ -143,13 +191,22 @@ func probeClaude(_ a: Account) async -> UsageResult {
     async let u = getJSON("https://api.anthropic.com/api/oauth/usage", h)
     async let m = getJSON("https://api.anthropic.com/v1/models?limit=100", h)
     async let pf = getJSON("https://api.anthropic.com/api/oauth/profile", h)
-    let (U, M, P) = await (u, m, pf)
+    async let cli = claudeCLILimits(a)
+    let (U, M, P, cliLimits) = await (u, m, pf, cli)
     // Profile is the source of truth for who is logged in; the keychain's subscriptionType can be stale.
     if let acct = P.json?["account"] as? [String: Any] { r.email = acct["email"] as? String }
     if let org = P.json?["organization"] as? [String: Any] {
         let tier = org["rate_limit_tier"] as? String ?? ""
         if let range = tier.range(of: #"max_\d+x"#, options: .regularExpression) { r.plan = "max " + tier[range].dropFirst(4) }
         else if let t = org["organization_type"] as? String { r.plan = t.replacingOccurrences(of: "claude_", with: "") }
+    }
+    if !cliLimits.isEmpty {
+        r.limits = cliLimits
+        if let ex = U.json?["extra_usage"] as? [String: Any] { r.notes.append((ex["is_enabled"] as? Bool) == true ? T("extra_on") : T("extra_off")) }
+        r.models = ((M.json?["data"] as? [[String: Any]]) ?? []).map {
+            ModelRow(id: $0["id"] as? String ?? "?", name: $0["display_name"] as? String ?? "?", detail: num($0["max_input_tokens"]).map { "\(Int($0 / 1000))k ctx" })
+        }
+        return r
     }
     if U.status == 401 { r.error = T("expired_claude"); return r }
     let names: [(String, String)] = [("five_hour", "Session (5h)"), ("seven_day", "Weekly – all models"), ("seven_day_opus", "Weekly – Opus"),

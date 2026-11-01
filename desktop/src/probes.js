@@ -83,16 +83,56 @@ async function claudeCreds(a) {
   return file && file.claudeAiOauth;
 }
 
+// `claude -p /usage` prints "Current week (Fable): 6% used · resets Nov 7 at 1:59pm (Asia/Saigon)".
+// It is what the CLI itself shows, so it has per-model windows the OAuth API does not return.
+function parseClaudeReset(raw) {
+  const m = raw.match(/^(?:([A-Za-z]{3}) (\d{1,2}) (?:at )?)?(?:at )?(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([^)]+)\)\s*$/i);
+  if (!m) return null;
+  const [, mon, day, h, min = '0', ap, tz] = m;
+  const hour = (Number(h) % 12) + (ap.toLowerCase() === 'pm' ? 12 : 0);
+  const now = new Date();
+  const parts = (d) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+    .formatToParts(d).filter((x) => x.type !== 'literal').map((x) => [x.type, Number(x.value)]));
+  let y; let mo; let dd;
+  const np = parts(now);
+  if (mon) { mo = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(mon.toLowerCase()) + 1; dd = Number(day); y = np.year; }
+  else { y = np.year; mo = np.month; dd = np.day; }
+  const toDate = (yy, mm, d2) => { // wall time in tz -> instant
+    const guess = Date.UTC(yy, mm - 1, d2, hour, Number(min));
+    const g = parts(new Date(guess));
+    return new Date(guess - (Date.UTC(g.year, g.month - 1, g.day, g.hour, g.minute) - guess));
+  };
+  let t = toDate(y, mo, dd);
+  if (mon && t < now - 30 * 864e5) t = toDate(y + 1, mo, dd);
+  if (!mon && t < now) t = new Date(t.getTime() + 864e5);
+  return t.getTime();
+}
+async function claudeCLILimits(a) {
+  const out = await sh('claude', ['-p', '/usage'], a.dir ? { CLAUDE_CONFIG_DIR: a.dir } : {}, 45000);
+  if (!out.ok) return [];
+  const limits = [];
+  for (const line of out.out.split('\n')) {
+    const m = line.trim().match(/^Current ([^:]+):\s*(\d+(?:\.\d+)?)%\s*used(?:\s*·\s*resets\s+(.+))?$/);
+    if (!m) continue;
+    let label = m[1];
+    if (label === 'session') label = 'Session (5h)';
+    else if (label.startsWith('week')) { const i = label.match(/\(([^)]+)\)/); label = i ? 'Weekly – ' + i[1] : 'Weekly'; }
+    limits.push({ label, percent: Number(m[2]), resetsAt: m[3] ? parseClaudeReset(m[3]) : null });
+  }
+  return limits;
+}
+
 async function probeClaude(a) {
   const r = { limits: [], models: [], notes: [] };
   const c = await claudeCreds(a);
   if (!c || !c.accessToken) return { ...r, errorKey: 'not_logged_claude' };
   r.plan = c.subscriptionType;
   const h = { Authorization: 'Bearer ' + c.accessToken, 'anthropic-beta': 'oauth-2025-04-20', 'anthropic-version': '2023-06-01', 'User-Agent': 'claude-code/2.1' };
-  const [u, m, p] = await Promise.all([
+  const [u, m, p, cliLimits] = await Promise.all([
     getJSON('https://api.anthropic.com/api/oauth/usage', h),
     getJSON('https://api.anthropic.com/v1/models?limit=100', h),
-    getJSON('https://api.anthropic.com/api/oauth/profile', h)]);
+    getJSON('https://api.anthropic.com/api/oauth/profile', h),
+    claudeCLILimits(a)]);
   // the profile says who is logged in; the stored subscriptionType can be stale
   if (p.json && p.json.account) r.email = p.json.account.email;
   const org = p.json && p.json.organization;
@@ -100,6 +140,13 @@ async function probeClaude(a) {
     const tier = org.rate_limit_tier || '';
     const mx = tier.match(/max_(\d+x)/);
     r.plan = mx ? 'max ' + mx[1] : (org.organization_type || r.plan || '').replace('claude_', '');
+  }
+  const mapModels = () => ((m.json && m.json.data) || []).map((x) => ({ id: x.id, name: x.display_name || x.id, detail: x.max_input_tokens ? `${Math.round(x.max_input_tokens / 1000)}k ctx` : undefined }));
+  if (cliLimits.length) {
+    r.limits = cliLimits;
+    if (u.json && u.json.extra_usage) r.notes.push({ k: u.json.extra_usage.is_enabled ? 'extra_on' : 'extra_off' });
+    r.models = mapModels();
+    return r;
   }
   if (u.status === 401) return { ...r, errorKey: 'expired_claude' };
   const U = u.json || {};
