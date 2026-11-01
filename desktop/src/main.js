@@ -54,7 +54,9 @@ async function updateTray() {
     const url = await barWin.webContents.executeJavaScript(`draw(${JSON.stringify(data)}, ${wide}, ${nativeTheme.shouldUseDarkColors})`);
     tray.setImage(nativeImage.createFromDataURL(url));
   } catch { /* window still loading */ }
-  const tip = data.map((d) => `${d.agent}: 5h ${d.h5 == null ? '—' : Math.round(d.h5) + '%'} · week ${d.wk == null ? '—' : Math.round(d.wk) + '%'}`).join('\n');
+  const pct = (v) => (v == null ? '—' : Math.round(v) + '%');
+  const tip = data.map((d) => `${d.agent}: 5h ${d.h5 == null ? '—' : Math.round(d.h5) + '%'} · week ${d.wk == null ? '—' : Math.round(d.wk) + '%'}`
+    + (d.cols ? d.cols.map((c) => `\n  ${c.tag}: 5h ${pct(c.h5)} · week ${pct(c.wk)}`).join('') : '')).join('\n');
   tray.setToolTip(tip || 'Agent Usage');
 }
 

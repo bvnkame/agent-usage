@@ -38,20 +38,37 @@ function draw(data, wide, dark) {
     ctx.fillText(low == null ? '—' : String(Math.round(low)), 16, 17);
     return c.toDataURL('image/png');
   }
-  const h = 22, per = 14 + 3 + 30 + 8, w = 20 + data.length * per;
+  const h = 22, colsOf = (d) => (d.cols && d.cols.length > 1 ? d.cols : null),
+    w = 13 + data.reduce((a, d) => a + 12 + (colsOf(d) ? 6.5 + colsOf(d).length * 20.5 : 23) + 4, 0);
   c.width = Math.max(w, 40) * k; c.height = h * k;
   const ctx = c.getContext('2d'); ctx.scale(k, k);
-  ctx.fillStyle = fg; ctx.font = '600 9.5px ui-monospace, monospace'; ctx.textBaseline = 'middle';
-  ctx.strokeStyle = fg; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(8, 12, 6, Math.PI * 0.8, Math.PI * 2.2); ctx.stroke();   // gauge
-  ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(11, 8); ctx.stroke();
-  let x = 20;
+  ctx.fillStyle = fg; ctx.font = '600 7px ui-monospace, monospace'; ctx.textBaseline = 'middle';
+  ctx.strokeStyle = fg; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(6, 12, 4, Math.PI * 0.8, Math.PI * 2.2); ctx.stroke();   // gauge
+  ctx.beginPath(); ctx.moveTo(6, 12); ctx.lineTo(8.5, 9); ctx.stroke();
+  let x = 13;
   for (const d of data) {
-    logo(ctx, d.agent, d.color, x, (h - 14) / 2, 14); x += 17;
+    logo(ctx, d.agent, d.color, x, (h - 10) / 2, 10); x += 12;
+    const cols = colsOf(d);
+    if (cols) {                      // 5h / w tags once, then one number column per group with its letter between the rows
+      ctx.fillStyle = dim; ctx.font = '500 5px sans-serif';
+      ctx.fillText('5h', x, 6); ctx.fillText('w', x, 16);
+      x += 6.5;
+      for (const c of cols) {
+        ctx.fillStyle = dim; ctx.globalAlpha = 0.7; ctx.font = '500 5px sans-serif'; ctx.fillText(c.tag, x, 11); ctx.globalAlpha = 1;
+        x += 4;
+        [[c.h5, 6], [c.wk, 16]].forEach(([v, y]) => {
+          ctx.fillStyle = color(v); ctx.font = '600 7px ui-monospace, monospace'; ctx.fillText(pct(v), x, y);
+        });
+        x += 16.5;
+      }
+      x += 4;
+      continue;
+    }
     [[d.h5, '5h', 6], [d.wk, 'w', 16]].forEach(([v, tag, y]) => {
-      ctx.fillStyle = dim; ctx.font = '500 7px sans-serif'; ctx.fillText(tag, x, y);
-      ctx.fillStyle = color(v); ctx.font = '600 9.5px ui-monospace, monospace'; ctx.fillText(pct(v), x + 9, y);
+      ctx.fillStyle = dim; ctx.font = '500 5px sans-serif'; ctx.fillText(tag, x, y);
+      ctx.fillStyle = color(v); ctx.font = '600 7px ui-monospace, monospace'; ctx.fillText(pct(v), x + 6.5, y);
     });
-    x += 38;
+    x += 27;
   }
   return c.toDataURL('image/png');
 }

@@ -22,7 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.setActivationPolicy(.accessory)   // no Dock icon
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.target = self; item.button?.action = #selector(toggle)
+        item.button?.target = self; item.button?.action = #selector(clicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         let host = NSHostingView(rootView: ContentView().environmentObject(store))
         host.wantsLayer = true
@@ -77,6 +78,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if outSince == nil { outSince = Date() }
             else if Date().timeIntervalSince(outSince!) > 0.35 { hide() }
         }
+    }
+
+    @objc func clicked() {
+        let e = NSApp.currentEvent
+        if e?.type == .rightMouseUp || e?.modifierFlags.contains(.control) == true { showMenu() } else { toggle() }
+    }
+
+    /// Right-click menu works even when the popup is wedged.
+    func showMenu() {
+        hide()
+        let m = NSMenu()
+        m.addItem(withTitle: "Refresh", action: #selector(refreshNow), keyEquivalent: "r").target = self
+        m.addItem(withTitle: "Reload App", action: #selector(reload), keyEquivalent: "R").target = self
+        m.addItem(.separator())
+        m.addItem(withTitle: "Quit Agent Usage", action: #selector(quit), keyEquivalent: "q").target = self
+        item.menu = m
+        item.button?.performClick(nil)
+        item.menu = nil     // keep left-click toggling the popup
+    }
+
+    @objc func refreshNow() { lastRefresh = Date(); Task { await store.refresh() } }
+    @objc func quit() { NSApp.terminate(nil) }
+
+    /// Relaunches the bundle: a detached shell waits for this process to exit, then opens the app again.
+    @objc func reload() {
+        let sh = Process()
+        sh.executableURL = URL(fileURLWithPath: "/bin/sh")
+        sh.arguments = ["-c", "sleep 0.6; /usr/bin/open -n \"$0\"", Bundle.main.bundlePath]
+        try? sh.run()
+        NSApp.terminate(nil)
     }
 
     @objc func toggle() {

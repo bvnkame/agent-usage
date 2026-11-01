@@ -204,7 +204,7 @@ struct ContentView: View {
                 }
             }
             }
-            HStack { Text(aboutLine).font(.caption2).foregroundStyle(.secondary); Spacer(); Button(T("quit")) { NSApp.terminate(nil) }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary) }
+            HStack { Text(aboutLine).font(.caption2).foregroundStyle(.secondary); Spacer(); Button { (NSApp.delegate as? AppDelegate)?.reload() } label: { Image(systemName: "arrow.triangle.2.circlepath") }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary).help("Reload app"); Button(T("quit")) { NSApp.terminate(nil) }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary) }
         }
         .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)
